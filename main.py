@@ -76,7 +76,7 @@ def astar(array, start, goal, terrain):
             while current in came_from:
                 data.append(current)
                 current = came_from[current]
-            return data
+            return (data, gscore[tuple(current)])
 
         close_set.add(current)
         for i, j in neighbors:
@@ -104,12 +104,13 @@ def astar(array, start, goal, terrain):
                 fscore[neighbor] = tentative_g_score + heuristic(neighbor, goal, terrain)
                 heappush(oheap, (fscore[neighbor], neighbor))
 
-    return False
+    return (False, -1)
 
 
 def main():
     file_name = sys.argv[1]
     N, M, C, R, customers, terrain = read(file_name)
+
 
     customers_keras = []
     for i in range(len(customers)):
@@ -132,6 +133,12 @@ def main():
         ctrid = clusters[label][0]
         if terrain[ctrid[1]][ctrid[0]] != float('inf'):
             clusters[label].append(coords)
+        others = clusters[:label] + clusters[label+1:]
+        for o in others:
+            dist = np.linalg.norm(np.array(coords)-np.array(o[0]))
+            if dist <= 15:
+                print(dist, coords, o[0])
+                o.append(coords)
     #print(clusters)
 
     #print(terrain)
@@ -144,7 +151,7 @@ def main():
         hqs = c[1:]
         for hq in hqs:
             #print(hq, office)
-            sol = astar(np.transpose(np.array(terrain)), hq, office, terrain)
+            (sol, g) = astar(np.transpose(np.array(terrain)), hq, office, terrain)
             # sol = sol[1:]
             if sol != False:
                 sol.append(tuple(hq))
@@ -158,7 +165,14 @@ def main():
                     if terrain[end[1]][end[0]] == float('inf'):
                         guard = True
                         break
-
+                    for c in centroids:
+                        if (c[0], c[1]) == (end[1], end[0]):
+                            guard = True
+                            break
+                    for c in customers_keras:
+                        if (c[0], c[1]) == (end[1], end[0]):
+                            guard = True
+                            break
                     if (start[0] - end[0]) == -1:
                         sol_dir.append('R')
                     elif (end[0] - start[0]) == -1:
@@ -171,16 +185,26 @@ def main():
                 if guard:
                     break
 
-                if len(sol_dir) > 0:
+                reward = 0
+                for c in customers:
+                    if c[0] == hq[0] and c[1] == hq[1]:
+                        reward = c[2]
+
+                if len(sol_dir) > 0 and (reward-g) > 0:
                     total.append({
                         'x': office[0],
                         'y': office[1],
-                        'path': sol_dir
+                        'path': sol_dir,
                     })
 
             # print(sol_dir)
             # solutions.append(sol_dir)
             #print(len(solutions), '\n')
+
+
+
+
+
 
     print(total)
     write(file_name.split(".")[0]+"_OUT.txt", total)
